@@ -1,46 +1,51 @@
 #include <iostream>
 #include <utility>
+#include <asio.hpp>
 #include <async.h>
 #include <streamredirect.hpp>
 #include "version.h"
 #include "bulkserver.hpp"
 
-// using namespace std;
+// Использование пространства имен std
 
-int main(int argc, const char *argv[])
-{
+void printUsage(const char *programName) {
+    std::cout << "Usage:" << std::endl;
+    std::cout << programName << " <port> <bulk size>" << std::endl;
+}
+
+int main(int argc, const char *argv[]) {
     std::cout << "Async app version: " << PROJECT_VERSION << std::endl;
 
-    const auto bulkSize = argc;
-    if (bulkSize != 3) {
-        std::cout << "Usage:" << std::endl;
-        std::cout << argv[0] << " <port> <bulk size>" << std::endl;
+    if (argc != 3) {
+        printUsage(argv[0]);
         return 1;
     }
 
-    // обработка параметра командной строки с числом команд в блоке
-    const std::uint16_t serverPort = std::atoi(argv[1]);
+    const auto serverPort = static_cast<std::uint16_t>(std::stoi(argv[1]));
+    const auto bulkCommandsLimit = std::stoi(argv[2]);
 
-    // обработка параметра командной строки с числом команд в блоке
-    const int bulkCommandsLimit = std::atoi(argv[2]);
-    if (bulkCommandsLimit < 1)
+    if (bulkCommandsLimit < 1) {
+        std::cout << "Bulk size must be greater than 0" << std::endl;
         return 0;
+    }
 
     try {
-        asio::io_context io_context(1);
+        asio::io_context ioContext(1);
 
-        asio::signal_set signals(io_context, SIGINT, SIGTERM);
-        signals.async_wait([&](auto, auto){ io_context.stop(); });
+        // Установка сигналов для корректной остановки сервера
+        asio::signal_set signals(ioContext, SIGINT, SIGTERM);
+        signals.async_wait([&](const asio::error_code&, int) { ioContext.stop(); });
 
-        asio::co_spawn(io_context, listener(io_context, serverPort, bulkCommandsLimit), asio::detached);
+        // Запуск сервера
+        asio::co_spawn(ioContext, listener(ioContext, serverPort, bulkCommandsLimit), asio::detached);
 
-        io_context.run();
-    }
-    catch (std::exception& e)
-    {
-        std::printf("Exception: %s\n", e.what());
+        // Запуск обработчика контекста ввода-вывода
+        ioContext.run();
+    } 
+    catch (const std::exception& e) {
+        std::cerr << "Exception: " << e.what() << std::endl;
     }
 
     return 0;
-
 }
+

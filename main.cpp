@@ -5,7 +5,7 @@
 #include <streamredirect.hpp>
 #include "version.h"
 #include "bulkserver.hpp"
-
+//01
 // Использование пространства имен std
 
 void printUsage(const char *programName) {
